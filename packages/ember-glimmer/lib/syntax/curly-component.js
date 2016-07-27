@@ -22,9 +22,6 @@ function aliasIdToElementId(args, props) {
 // We must traverse the attributeBindings in reverse keeping track of
 // what has already been applied. This is essentially refining the concated
 // properties applying right to left.
-//
-// Returns whether we have applied a "style" binding (if not, we need to
-// bind `isVisible`).
 function applyAttributeBindings(attributeBindings, component, operations) {
   let seen = new EmptyObject();
   let i = attributeBindings.length - 1;
@@ -42,7 +39,9 @@ function applyAttributeBindings(attributeBindings, component, operations) {
     i--;
   }
 
-  return seen['style'];
+  if (!seen['style']) {
+    IsVisibleBinding.apply(component, operations);
+  }
 }
 
 export class CurlyComponentSyntax extends StatementSyntax {
@@ -167,13 +166,9 @@ class CurlyComponentManager {
 
     let { attributeBindings, classNames, classNameBindings } = component;
 
-    let hasStyle = false;
-
     if (attributeBindings && attributeBindings.length) {
-      hasStyle = applyAttributeBindings(attributeBindings, component, operations);
-    }
-
-    if (!hasStyle) {
+      applyAttributeBindings(attributeBindings, component, operations);
+    } else {
       IsVisibleBinding.apply(component, operations);
     }
 
