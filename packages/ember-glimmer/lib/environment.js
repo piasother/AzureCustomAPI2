@@ -7,7 +7,7 @@ import {
   compileLayout
 } from 'glimmer-runtime';
 import Cache from 'ember-metal/cache';
-import { assert, warn } from 'ember-metal/debug';
+import { assert, warn, runInDebug } from 'ember-metal/debug';
 import { CurlyComponentSyntax, CurlyComponentDefinition } from './syntax/curly-component';
 import { DynamicComponentSyntax } from './syntax/dynamic-component';
 import { RenderSyntax } from './syntax/render';
@@ -57,22 +57,6 @@ function buildTextFieldSyntax({ args, templates }, getDefinition) {
   wrapClassAttribute(args);
   return new CurlyComponentSyntax({ args, definition, templates });
 }
-
-const StyleAttributeChangeList = {
-  setAttribute(dom, element, attr, value) {
-    warn(STYLE_WARNING, (() => {
-      if (value === null || value === undefined || isSafeString(value)) {
-        return true;
-      }
-      return false;
-    })(), { id: 'ember-htmlbars.style-xss-warning' });
-    AttributeChangeList.setAttribute(...arguments);
-  },
-
-  updateAttribute() {
-    this.setAttribute(...arguments);
-  }
-};
 
 const builtInDynamicComponents = {
   input({ key, args, templates }, getDefinition) {
@@ -288,14 +272,6 @@ export default class Environment extends GlimmerEnvironment {
     return hasPartial(this, name[0]);
   }
 
-  attributeFor(element, attr, reference, isTrusting) {
-    if (attr === 'style' && !isTrusting) {
-      return StyleAttributeChangeList;
-    }
-
-    return super.attributeFor(...arguments);
-  }
-
   lookupPartial(name) {
     let partial = {
       template: lookupPartial(this, name[0]).spec
@@ -364,3 +340,35 @@ export default class Environment extends GlimmerEnvironment {
     destroyable.destroy();
   }
 }
+
+runInDebug(() => {
+  let StyleAttributeChangeList = {
+    setAttribute(dom, element, attr, value) {
+      warn(STYLE_WARNING, (() => {
+        if (value === null || value === undefined || isSafeString(value)) {
+          return true;
+        }
+        return false;
+      })(), { id: 'ember-htmlbars.style-xss-warning' });
+      AttributeChangeList.setAttribute(...arguments);
+    },
+
+    updateAttribute(dom, element, attr, value) {
+      warn(STYLE_WARNING, (() => {
+        if (value === null || value === undefined || isSafeString(value)) {
+          return true;
+        }
+        return false;
+      })(), { id: 'ember-htmlbars.style-xss-warning' });
+      AttributeChangeList.updateAttribute(...arguments);
+    }
+  };
+
+  Environment.prototype.attributeFor = function(element, attr, reference, isTrusting) {
+    if (attr === 'style' && !isTrusting) {
+      return StyleAttributeChangeList;
+    }
+
+    return GlimmerEnvironment.prototype.attributeFor.call(this, element, attr, reference, isTrusting);
+  };
+});
