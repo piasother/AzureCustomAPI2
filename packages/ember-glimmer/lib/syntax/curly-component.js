@@ -1,7 +1,9 @@
 import { StatementSyntax, ValueReference } from 'glimmer-runtime';
-import { TO_ROOT_REFERENCE, AttributeBindingReference, applyClassNameBinding } from '../utils/references';
+import { TO_ROOT_REFERENCE } from '../utils/references';
+import { AttributeBinding, ClassNameBinding } from '../utils/bindings';
 import { DIRTY_TAG, IS_DISPATCHING_ATTRS, HAS_BLOCK } from '../component';
 import { assert } from 'ember-metal/debug';
+import EmptyObject from 'ember-metal/empty_object';
 import processArgs from '../utils/process-args';
 import { privatize as P } from 'container/registry';
 import get from 'ember-metal/property_get';
@@ -21,17 +23,17 @@ function aliasIdToElementId(args, props) {
 // what has already been applied. This is essentially refining the concated
 // properties applying right to left.
 function applyAttributeBindings(attributeBindings, component, operations) {
-  let seen = [];
+  let seen = new EmptyObject();
   let i = attributeBindings.length - 1;
 
   while (i !== -1) {
     let binding = attributeBindings[i];
-    let parsedMicroSyntax = AttributeBindingReference.parseMicroSyntax(binding);
-    let [ prop ] = parsedMicroSyntax;
+    let parsed = AttributeBinding.parse(binding);
+    let attribute = parsed[1];
 
-    if (seen.indexOf(prop) === -1) {
-      seen.push(prop);
-      AttributeBindingReference.apply(component, parsedMicroSyntax, operations);
+    if (!seen[attribute]) {
+      seen[attribute] = true;
+      AttributeBinding.apply(component, parsed, operations);
     }
 
     i--;
@@ -176,7 +178,7 @@ class CurlyComponentManager {
 
     if (classNameBindings && classNameBindings.length) {
       classNameBindings.forEach(binding => {
-        applyClassNameBinding(component, binding, operations);
+        ClassNameBinding.apply(component, binding, operations);
       });
     }
 
